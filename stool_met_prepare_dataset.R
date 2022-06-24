@@ -36,7 +36,7 @@ rownames(tmp) %<>% gsub("\\[|\\]", "", .)
 tmp$species <- paste0("s__", rownames(tmp))
 stool_met$tax_table <- tmp
 
-# rename taxonomic names
+# rename taxonomic ranks
 colnames(stool_met$tax_table) <- c("Phylum", "Class", "Order", "Family", "Genus", "Species")
 tmp <- ifelse(stool_met$tax_table$Phylum == "p__Euryarchaeota", "k__Archaea", "k__Bacteria")
 stool_met$tax_table <- data.frame(Kingdom = tmp, stool_met$tax_table)
@@ -50,7 +50,7 @@ stool_met$otu_table %<>% .[rownames(.) != "Prevotella sp. CAG:1124", ]
 stool_met$otu_table %<>% .[rownames(.) != "Bacteroides sp. CAG:927", ]
 stool_met$tidy_dataset()
 
-# use samples have 0 count in less than 70 species
+# use samples that have 0 count in less than 70 species
 tmp <- apply(stool_met$otu_table, 2, function(x){sum(x == 0)})
 tmp <- tmp[tmp < 70]
 stool_met$otu_table %<>% .[, colnames(.) %in% names(tmp)]
