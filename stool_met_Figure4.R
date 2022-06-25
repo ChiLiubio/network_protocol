@@ -13,7 +13,7 @@ theme_set(theme_bw())
 
 data("stool_met.RData")
 data("stool_met_network.RData")
-source("Funtion_utilities.R")
+source("Function_utilities.R")
 
 ############################
 # Niche overlap
