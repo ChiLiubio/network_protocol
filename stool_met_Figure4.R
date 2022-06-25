@@ -1,267 +1,121 @@
 
-# load microeco package
-library(microeco)
-# load magrittr package to use pipe operator
-library(magrittr)
-set.seed(123)
-library(tibble)
-library(dplyr)
 
-library(ggplot2)
+library(pacman)
+p_load(microeco, magrittr, igraph, dplyr, ggplot2, grid, tibble)
+set.seed(123)
 theme_set(theme_bw())
 
 
 data("stool_met.RData")
 data("stool_met_network.RData")
-source("Function_utilities.R")
+data("prok_func_NJC19_list")
 
-############################
-# Niche overlap
+plot_edge_metabolite <- function(label = NULL, substance = NULL, ylab_name = NULL){
+	long_name <- c("Indole", "Isobutyrate (2-Methylpropanoic acid)", "Isovalerate (3-Methylbutanoic acid)", "Niacin (Vitamin B3, Nicotinic acid, Nicotinate, Nicotinamide, Vitamin B3)", 
+	"Pyruvate", "Sulfate (Sulfuric acid, Sulfite)", "Menaquinone (Vitamin K2)", "Methylamine (Monomethylamine)", "Propanoate (Propionate)", "Urea", 
+	"Butyrate", "Chenodeoxycholic acid (Chenodeoxycholate)", "Cholic acid (Cholate)", 
+	"Methanol", "Riboflavin (Vitamin B2)", "1,2-propanediol (Propene diol, Propylene glycol, [R]-1,2-propanediol, [R]-propane-1,2-diol, [S]-1,2-propanediol, [S]-propane-1,2-diol)", 
+	"[R,R]-2,3-Butanediol ([R,R]-Butanediol, [S,S]-2,3-Butanediol, [S,S]-Butanediol)", "Ethanol", "H2 (Hydrogen)", "Succinate", "Formate", "Thiamine (Vitamin B1, Thiamin)", 
+	"NH3 (Ammonia, NH4+, Ammonium)", "CO2", "Folic acid (Folate, Vitamin B9)", "Biotin (Vitamin B7)", "Pyridoxal (Vitamin B6, Pyridoxine, Pyridoxamine, Vitamin B6)", 
+	"Adenosylcobalamin (Vitamin B12, Cobamide coenzyme, Cob[II]alamin, Vitamin B12r, Cob[I]alamin, Vitamin B12s, Aquacobalamin, Cobalamin [III])", 
+	"L-Lactate ([S]-Lactate, Lactate, D-Lactate, [R]-Lactate)", "Acetate")
+	short_name <- c("Indole", "Isobutyrate (2-Methylpropanoic acid)", "Isovalerate (3-Methylbutanoic acid)", 
+	"Niacin (Vitamin B3, Nicotinate, Nicotinamide)", "Pyruvate", "Sulfate (Sulfuric acid, Sulfite)", "Menaquinone (Vitamin K2)", 
+	"Methylamine (Monomethylamine)", "Propanoate (Propionate)", "Urea", "Butyrate", "Chenodeoxycholic acid (Chenodeoxycholate)", "Cholic acid (Cholate)", 
+	"Methanol", "Riboflavin (Vitamin B2)", "1,2-propanediol (Propylene glycol)", "[R,R]-2,3-Butanediol ([S,S]-2,3-Butanediol)", 
+	"Ethanol", "H2 (Hydrogen)", "Succinate", "Formate", "Thiamine (Vitamin B1, Thiamin)", "NH3 (Ammonia, NH4+, Ammonium)", "CO2", "Folic acid (Folate, Vitamin B9)", 
+	"Biotin (Vitamin B7)", "Pyridoxal (Vitamin B6, Pyridoxine, Pyridoxamine)", "Adenosylcobalamin (Vitamin B12)", 
+	"L-Lactate ([S]-Lactate, D-Lactate, [R]-Lactate)", "Acetate")
 
-# require MicroNiche
-library(MicroNiche)
+	# species_edge_metabolism to store the match results
+	species_edge_metabolism <- data.frame()
+	for(i in names(stool_met_network)){
+		tmp <- stool_met_network[[i]]$res_edge_table
+		tmp1 <- tmp
+		tmp1[, 1] <- tmp[, 2]
+		tmp1[, 2] <- tmp[, 1]
+		tmp <- rbind(tmp, tmp1)
+		tmp$net <- i
+		species_edge_metabolism <- rbind(species_edge_metabolism, tmp)
+	}
+	species_edge_metabolism$for_match <- paste0(species_edge_metabolism[, 1], "-", species_edge_metabolism[, 2])
+	species_edge_metabolism %<>% .[.$label == label, ]
 
-tmp <- stool_met$otu_table
-tmp <- data.frame(Taxon = rownames(tmp), tmp)
-# there is a bug in levins.overlap of MicroNiche
-tmp <- rbind(tmp[1, ], tmp)
-tmp$Taxon %<>% as.character
-tmp[1, 1] <- "add"
-tmp$Taxon %<>% as.factor
+	species_edge_metabolism$PS <- NA
+	species_edge_metabolism$SS <- NA
+	species_edge_metabolism$PP <- NA
+	species_edge_metabolism %<>% .[.[, 1] %in% names(prok_func_NJC19_list), ]
+	species_edge_metabolism %<>% .[.[, 2] %in% names(prok_func_NJC19_list), ]
 
-levins_overlap <- levins.overlap(tmp)
-rownames(levins_overlap) <- levins_overlap[, 1]
-levins_overlap %<>% .[, -1] %>% as.matrix
+	for(i in seq_len(nrow(species_edge_metabolism))){
+		tmp1 <- prok_func_NJC19_list[[species_edge_metabolism[i, 1]]]
+		tmp2 <- prok_func_NJC19_list[[species_edge_metabolism[i, 2]]]
+		species_edge_metabolism[i, "PS"] <- intersect(tmp1$Production, tmp2$Consumption) %>% paste0(collapse = "|")
+		species_edge_metabolism[i, "SS"] <- intersect(tmp1$Consumption, tmp2$Consumption) %>% paste0(collapse = "|")
+		species_edge_metabolism[i, "PP"] <- intersect(tmp1$Production, tmp2$Production) %>% paste0(collapse = "|")
+	}
+	# parse required
+	tmp <- species_edge_metabolism %>% .[, substance] %>% lapply(., function(x){unlist(strsplit(x, "\\|"))}) %>% unlist %>% table %>% names
+	tmp <- data.frame(name = tmp)
+	for(i in names(stool_met_network)){
+		if(i %in% species_edge_metabolism$net){
+			tmp1 <- species_edge_metabolism %>% .[.$net == i, substance] %>% unique
+			if(identical(tmp1, "")){
+				next
+			}else{
+				tmp1 %<>% lapply(., function(x){unlist(strsplit(x, "\\|"))}) %>% unlist %>% table %>% as.data.frame
+				colnames(tmp1) <- c("name", i)
+				tmp <- left_join(tmp, tmp1, by = c("name" = "name"))
+			}
+		}else{
+			next
+		}
+	}
+	rownames(tmp) <- tmp$name
+	tmp <- tmp[, -1]
+	tmp <- tmp[long_name, ]
+	rownames(tmp) <- short_name
+	tmp[is.na(tmp)] <- 0
+	tmp <- tmp[apply(tmp, 1, sum) != 0, ]
 
-res <- data.frame()
-for(i in names(stool_met_network)){
-	tmp <- get_matrix_value(network = stool_met_network[[i]], label = "+", select_matrix = levins_overlap, group_name = i, module_number = NULL)
-	res <- rbind(res, tmp)
-}
-for(i in names(stool_met_network)){
-	tmp <- get_matrix_value(network = stool_met_network[[i]], label = "-", select_matrix = levins_overlap, group_name = i, module_number = NULL)
-	res <- rbind(res, tmp)
-}
+	for(i in names(stool_met_network)){
+		tmp3 <- stool_met_network[[i]]$res_edge_table
+		tmp3 %<>% .[.$label == label, ]
+		if(i %in% colnames(tmp)){
+			tmp[, i] %<>% {. / nrow(tmp3)}
+		}else{
+			next
+		}
+	}
 
-res$Group %<>% factor(., levels = names(stool_met_network))
-res %<>% .[!is.na(.$Value), ]
-res$Measure <- res$Group
-res$Group <- paste0(res$Measure, "_", res$label)
-# obtain significance
-tmp1 <- res
-tmp1$Measure <- "Test"
-tmp2 <- trans_alpha$new(dataset = NULL)
-tmp2$data_alpha <- tmp1
-tmp2$group <- "Group"
-tmp2$cal_diff(method = "anova", measure = "Test")
+	tmp1 <- reshape2::melt(rownames_to_column(tmp, var = "name"), id.vars = "name")
+	colnames(tmp1)[3] <- "Abundance"
+	tmp1$Abundance %<>% {. * 100}
+	tmp2 <- reshape2::dcast(tmp1, name~variable, value.var = "Abundance") %>% `row.names<-`(.[,1]) %>% .[, -1, drop = FALSE]
+	tmp2[is.na(tmp2)] <- 0
+	x1 <- hclust(dist(tmp2)) 
+	x1 %<>% {.$labels[.$order]}
+	x2 <- names(stool_met_network)
 
-tmp3 <- tmp2$res_diff %>% tibble::rownames_to_column(var = "Group")
-tmp5 <- res[, c(1, 3, 4)] %>% unique
-tmp5 <- left_join(tmp3, tmp5, by = c("Group" = "Group"))
-colnames(tmp5)[colnames(tmp5) == "Group"] <- "Type"
-colnames(tmp5)[colnames(tmp5) == "label"] <- "Group"
-colnames(tmp5)[colnames(tmp5) == "Test"] <- "Significance"
+	tmp2 <- tmp1
+	tmp2$Abundance %<>% round(., 1)
 
-colnames(res)[colnames(res) == "Group"] <- "Type"
-colnames(res)[colnames(res) == "label"] <- "Group"
-res$Group %<>% factor(., levels = c("+", "-"))
-res$Measure %<>% factor(., levels = names(stool_met_network))
+	g <- ggplot(tmp1, aes_string(x = "variable", y = "name", label = formatC("Abundance", format = "f", digits = 2))) +
+		geom_tile(aes(fill = Abundance), colour = "white", size = 0.5) +
+		theme(axis.text.y = element_text(size = 11)) + theme(plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")) + 
+		geom_text(data = tmp2, size = 4, colour = "grey10") + 
+		scale_fill_gradientn(colours = rev(RColorBrewer::brewer.pal(n = 11, name = "RdYlBu")[-11]), trans = "log10", na.value = RColorBrewer::brewer.pal(n = 11, name = "RdYlBu")[11]) + 
+		labs(x = "", y = ylab_name, fill = "Percentage") +
+		theme(axis.text.x = element_text(angle = 25, colour = "black", vjust = 1, hjust = 1, size = 11)) + 
+		theme(axis.title.y = element_text(size = 15)) +
+		scale_y_discrete(limits = x1) + scale_x_discrete(limits = x2)
 
-g1 <- ggplot(res, aes(x = Measure, y = Value, color = Group)) +
-	theme_bw() +
-	geom_boxplot(position = position_dodge(0.9)) +
-	geom_text(aes(x = x, y = y, label = add), data = get_sig_data(abund_data = res, diff_data = tmp5), inherit.aes = FALSE) +
-	scale_color_manual(values = RColorBrewer::brewer.pal(8, "Dark2")) +
-	ylab("Niche overlap") +
-	xlab("") +
-	theme(axis.text.x = element_text(angle = 40, colour = "black", vjust = 1, hjust = 1, size = 12)) +
-	theme(axis.title.y = element_text(size = 18)) +
-	theme(plot.margin = unit(c(0.1, 0.1, 0.1, 1), "cm")) + 
-	labs(color = "Label")
-
-g1
-
-
-##########################################
-# Phylogenetic distance
-
-phylogenetic_distance <- cophenetic(stool_met$phylo_tree) %>% as.matrix
-
-res <- data.frame()
-for(i in names(stool_met_network)){
-	tmp <- get_matrix_value(network = stool_met_network[[i]], label = "+", select_matrix = phylogenetic_distance, group_name = i, module_number = NULL)
-	res <- rbind(res, tmp)
-}
-for(i in names(stool_met_network)){
-	tmp <- get_matrix_value(network = stool_met_network[[i]], label = "-", select_matrix = phylogenetic_distance, group_name = i, module_number = NULL)
-	res <- rbind(res, tmp)
-}
-
-res$Group %<>% factor(., levels = names(stool_met_network))
-res %<>% .[!is.na(.$Value), ]
-res$Measure <- res$Group
-res$Group <- paste0(res$Measure, "_", res$label)
-# obtain significance
-tmp1 <- res
-tmp1$Measure <- "Test"
-tmp2 <- trans_alpha$new(dataset = NULL)
-tmp2$data_alpha <- tmp1
-tmp2$group <- "Group"
-tmp2$cal_diff(method = "anova", measure = "Test")
-
-tmp3 <- tmp2$res_diff
-tmp4 <- tmp3 %>% rownames_to_column(var = "Group")
-tmp5 <- res[, c(1, 3, 4)] %>% unique
-tmp5 <- left_join(tmp4, tmp5, by = c("Group" = "Group"))
-colnames(tmp5)[colnames(tmp5) == "Group"] <- "Type"
-colnames(tmp5)[colnames(tmp5) == "label"] <- "Group"
-colnames(tmp5)[colnames(tmp5) == "Test"] <- "Significance"
-
-colnames(res)[colnames(res) == "Group"] <- "Type"
-colnames(res)[colnames(res) == "label"] <- "Group"
-res$Group %<>% factor(., levels = c("+", "-"))
-res$Measure %<>% factor(., levels = names(stool_met_network))
-
-
-g2 <- ggplot(res, aes(x = Measure, y = Value, color = Group)) +
-	theme_bw() +
-	geom_boxplot(position = position_dodge(0.9)) +
-	geom_text(aes(x = x, y = y, label = add), data = get_sig_data(abund_data = res, diff_data = tmp5), inherit.aes = FALSE) +
-	scale_color_manual(values = RColorBrewer::brewer.pal(8, "Dark2")) +
-	ylab("Phylogenetic distance") +
-	xlab("") +
-	theme(axis.text.x = element_text(angle = 40, colour = "black", vjust = 1, hjust = 1, size = 12)) +
-	theme(axis.title.y = element_text(size = 18)) +
-	theme(plot.margin = unit(c(0.1, 0.1, 0.1, 1), "cm")) + 
-	labs(color = "Label")
-
-g2
-
-
-##########################################
-# Competition index
-
-load("genome_interactions.RData")
-
-x1 <- genome_interactions$competition
-
-res <- data.frame()
-for(i in names(stool_met_network)){
-	tmp <- get_matrix_value(network = stool_met_network[[i]], label = "+", select_matrix = x1, group_name = i, module_number = NULL)
-	res <- rbind(res, tmp)
-}
-for(i in names(stool_met_network)){
-	tmp <- get_matrix_value(network = stool_met_network[[i]], label = "-", select_matrix = x1, group_name = i, module_number = NULL)
-	res <- rbind(res, tmp)
+	g
 }
 
-res$Group %<>% factor(., levels = names(stool_met_network))
-res %<>% .[!is.na(.$Value), ]
-res$Measure <- res$Group
-res$Group <- paste0(res$Measure, "_", res$label)
-# Significance
-tmp1 <- res
-tmp1$Measure <- "Test"
-tmp2 <- trans_alpha$new(dataset = NULL)
-tmp2$data_alpha <- tmp1
-tmp2$group <- "Group"
-tmp2$cal_diff(method = "anova", measure = "Test")
-
-tmp3 <- tmp2$res_diff
-tmp4 <- tmp3 %>% rownames_to_column(var = "Group")
-tmp5 <- res[, c(1, 3, 4)] %>% unique
-tmp5 <- left_join(tmp4, tmp5, by = c("Group" = "Group"))
-colnames(tmp5)[colnames(tmp5) == "Group"] <- "Type"
-colnames(tmp5)[colnames(tmp5) == "label"] <- "Group"
-colnames(tmp5)[colnames(tmp5) == "Test"] <- "Significance"
-
-colnames(res)[colnames(res) == "Group"] <- "Type"
-colnames(res)[colnames(res) == "label"] <- "Group"
-res$Group %<>% factor(., levels = c("+", "-"))
-res$Measure %<>% factor(., levels = names(stool_met_network))
-
-
-g3 <- ggplot(res, aes(x = Measure, y = Value, color = Group)) +
-	theme_bw() +
-	geom_boxplot(position = position_dodge(0.9)) +
-	geom_text(aes(x = x, y = y, label = add), data = get_sig_data(abund_data = res, diff_data = tmp5), inherit.aes = FALSE) +
-	scale_color_manual(values = RColorBrewer::brewer.pal(8, "Dark2")) +
-	ylab("Competition index") +
-	xlab("") +
-	theme(axis.text.x = element_text(angle = 40, colour = "black", vjust = 1, hjust = 1, size = 12)) +
-	theme(axis.title.y = element_text(size = 18)) +
-	theme(plot.margin = unit(c(0.1, 0.1, 0.1, 1), "cm")) + 
-	labs(color = "Label")
-
-g3
-
-
-
-#########################
-# Complementarity index
-x1 <- genome_interactions$complementarity
-
-res <- data.frame()
-for(i in names(stool_met_network)){
-	tmp <- get_matrix_value(network = stool_met_network[[i]], label = "+", select_matrix = x1, group_name = i, module_number = NULL)
-	res <- rbind(res, tmp)
-}
-for(i in names(stool_met_network)){
-	tmp <- get_matrix_value(network = stool_met_network[[i]], label = "-", select_matrix = x1, group_name = i, module_number = NULL)
-	res <- rbind(res, tmp)
-}
-
-res$Group %<>% factor(., levels = names(stool_met_network))
-res %<>% .[!is.na(.$Value), ]
-res$Measure <- res$Group
-res$Group <- paste0(res$Measure, "_", res$label)
-# Significance
-tmp1 <- res
-tmp1$Measure <- "Test"
-tmp2 <- trans_alpha$new(dataset = NULL)
-tmp2$data_alpha <- tmp1
-tmp2$group <- "Group"
-tmp2$cal_diff(method = "anova", measure = "Test")
-
-tmp3 <- tmp2$res_diff
-tmp4 <- tmp3 %>% rownames_to_column(var = "Group")
-tmp5 <- res[, c(1, 3, 4)] %>% unique
-tmp5 <- left_join(tmp4, tmp5, by = c("Group" = "Group"))
-colnames(tmp5)[colnames(tmp5) == "Group"] <- "Type"
-colnames(tmp5)[colnames(tmp5) == "label"] <- "Group"
-colnames(tmp5)[colnames(tmp5) == "Test"] <- "Significance"
-
-colnames(res)[colnames(res) == "Group"] <- "Type"
-colnames(res)[colnames(res) == "label"] <- "Group"
-res$Group %<>% factor(., levels = c("+", "-"))
-res$Measure %<>% factor(., levels = names(stool_met_network))
-
-
-g4 <- ggplot(res, aes(x = Measure, y = Value, color = Group)) +
-	theme_bw() +
-	geom_boxplot(position = position_dodge(0.9)) +
-	geom_text(aes(x = x, y = y, label = add), data = get_sig_data(abund_data = res, diff_data = tmp5), inherit.aes = FALSE) +
-	scale_color_manual(values = RColorBrewer::brewer.pal(8, "Dark2")) +
-	ylab("Complementarity index") +
-	xlab("") +
-	theme(axis.text.x = element_text(angle = 40, colour = "black", vjust = 1, hjust = 1, size = 12)) +
-	theme(axis.title.y = element_text(size = 18)) +
-	theme(plot.margin = unit(c(0.1, 0.1, 0.1, 1), "cm")) + 
-	labs(color = "Label")
-
-g4
-
-
-library(gridExtra)
-
-p1 <- ggpubr::ggarrange(g1, g2, g3, g4, ncol = 2, nrow = 2, labels = letters[1:4], font.label = list(size = 20))
-cowplot::save_plot("Figure4.png", p1, base_aspect_ratio = 1.6, dpi = 300, base_height = 10)
-
-
-
-
-
-
-
+g1 <- plot_edge_metabolite(label = "+", substance = "PS", ylab_name = "Metabolites for exchange in positive edges")
+g2 <- plot_edge_metabolite(label = "+", substance = "SS", ylab_name = "Substrates for competition in positive edges")
+g3 <- plot_edge_metabolite(label = "-", substance = "PS", ylab_name = "Metabolites for exchange in negative edges")
+g4 <- plot_edge_metabolite(label = "-", substance = "SS", ylab_name = "Substrates for competition in negative edges")
 
 
