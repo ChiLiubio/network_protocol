@@ -1,4 +1,8 @@
 
+if(!require(agricolae)){
+	install.packages("agricolae")
+}
+
 # load microeco package
 library(microeco)
 # load magrittr package to use pipe operator
@@ -11,8 +15,8 @@ library(ggplot2)
 theme_set(theme_bw())
 
 
-data("stool_met.RData")
-data("stool_met_network.RData")
+load("stool_met.RData")
+load("stool_met_network.RData")
 source("Function_utilities.R")
 
 ############################
@@ -23,7 +27,7 @@ library(MicroNiche)
 
 tmp <- stool_met$otu_table
 tmp <- data.frame(Taxon = rownames(tmp), tmp)
-# there is a bug in levins.overlap of MicroNiche
+# there is a bug in levins.overlap of MicroNiche 
 tmp <- rbind(tmp[1, ], tmp)
 tmp$Taxon %<>% as.character
 tmp[1, 1] <- "add"

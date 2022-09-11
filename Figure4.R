@@ -1,13 +1,18 @@
 
 
+# manage packages
+if(!require(pacman)){
+	install.packages("pacman")
+}
+
 library(pacman)
 p_load(microeco, magrittr, igraph, dplyr, ggplot2, grid, tibble)
 set.seed(123)
 theme_set(theme_bw())
 
 
-data("stool_met.RData")
-data("stool_met_network.RData")
+load("stool_met.RData")
+load("stool_met_network.RData")
 data("prok_func_NJC19_list")
 
 plot_edge_metabolite <- function(label = NULL, substance = NULL, ylab_name = NULL){
@@ -30,6 +35,9 @@ plot_edge_metabolite <- function(label = NULL, substance = NULL, ylab_name = NUL
 	# species_edge_metabolism to store the match results
 	species_edge_metabolism <- data.frame()
 	for(i in names(stool_met_network)){
+		if(is.null(stool_met_network[[i]]$res_edge_table)){
+			stool_met_network[[i]]$get_edge_table()
+		}
 		tmp <- stool_met_network[[i]]$res_edge_table
 		tmp1 <- tmp
 		tmp1[, 1] <- tmp[, 2]
@@ -114,8 +122,11 @@ plot_edge_metabolite <- function(label = NULL, substance = NULL, ylab_name = NUL
 }
 
 g1 <- plot_edge_metabolite(label = "+", substance = "PS", ylab_name = "Metabolites for exchange in positive edges")
+g1
 g2 <- plot_edge_metabolite(label = "+", substance = "SS", ylab_name = "Substrates for competition in positive edges")
+g2
 g3 <- plot_edge_metabolite(label = "-", substance = "PS", ylab_name = "Metabolites for exchange in negative edges")
+g3
 g4 <- plot_edge_metabolite(label = "-", substance = "SS", ylab_name = "Substrates for competition in negative edges")
-
+g4
 

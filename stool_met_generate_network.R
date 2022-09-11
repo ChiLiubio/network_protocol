@@ -59,22 +59,6 @@ stool_met_network$stool_met_gcoda <- stool_met_gcoda
 rm(stool_met_gcoda)
 
 
-# FlashWeave
-# heterogeneous option
-stool_met_flash_het <- trans_network$new(dataset = stool_met, cor_method = NULL)
-dir.create("FlashWeave_het_tempdir_het")
-stool_met_flash_het$cal_network(network_method = "FlashWeave", FlashWeave_tempdir = "./FlashWeave_het_tempdir_het",
-	FlashWeave_other_para = "alpha=0.01,sensitive=true,heterogeneous=true")
-stool_met_network$stool_met_flash_het <- stool_met_flash_het
-rm(stool_met_flash_het)
-
-stool_met_flash_hom <- trans_network$new(dataset = stool_met, cor_method = NULL)
-dir.create("FlashWeave_het_tempdir_hom")
-stool_met_flash_hom$cal_network(network_method = "FlashWeave", FlashWeave_tempdir = "./FlashWeave_het_tempdir_hom",
-	FlashWeave_other_para = "alpha=0.01,sensitive=true,heterogeneous=false")
-stool_met_network$stool_met_flash_hom <- stool_met_flash_hom
-rm(stool_met_flash_hom)
-
 # beemStatic
 stool_met_bs <- trans_network$new(dataset = stool_met, cor_method = NULL)
 stool_met_bs$cal_network(network_method = "beemStatic")

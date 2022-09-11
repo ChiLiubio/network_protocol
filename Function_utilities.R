@@ -6,6 +6,9 @@ library(magrittr)
 # module_number: how many modules are used; default NULL
 get_matrix_value <- function(network, label = c("+", "-"), select_matrix, group_name, module_number = NULL){
 	if(is.null(module_number)){
+		if(is.null(network$res_edge_table)){
+			network$get_edge_table()
+		}
 		tmp <- network$res_edge_table %>% .[.$label %in% label, ]
 		if(nrow(tmp) == 0){
 			res <- NA
