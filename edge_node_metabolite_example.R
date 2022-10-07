@@ -1,12 +1,13 @@
 
 
-# manage packages
-if(!require(pacman)){
-	install.packages("pacman")
-}
+library(microeco)
+library(magrittr)
+library(igraph)
+library(dplyr)
+library(ggplot2)
+library(grid)
+library(tibble)
 
-library(pacman)
-p_load(microeco, magrittr, igraph, dplyr, ggplot2, grid, tibble)
 set.seed(123)
 theme_set(theme_bw())
 
@@ -121,12 +122,8 @@ plot_edge_metabolite <- function(label = NULL, substance = NULL, ylab_name = NUL
 	g
 }
 
-g1 <- plot_edge_metabolite(label = "+", substance = "PS", ylab_name = "Metabolites for exchange in positive edges")
-g1
-g2 <- plot_edge_metabolite(label = "+", substance = "SS", ylab_name = "Substrates for competition in positive edges")
-g2
-g3 <- plot_edge_metabolite(label = "-", substance = "PS", ylab_name = "Metabolites for exchange in negative edges")
-g3
-g4 <- plot_edge_metabolite(label = "-", substance = "SS", ylab_name = "Substrates for competition in negative edges")
-g4
+plot_edge_metabolite(label = "+", substance = "PS", ylab_name = "Metabolites for exchange in positive edges")
+
+plot_edge_metabolite(label = "+", substance = "SS", ylab_name = "Substrates for competition in positive edges")
+
 
